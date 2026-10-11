@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Slaughterhouse Race</title>
 <style>
-:root{--bg:#120607;--panel:#1d0b0c;--line:#4a1517;--red:#820404;--text:#f3e6e3;--mute:#a88986;--field:#2a1011;--d:#e0a030;--h:#4aa3ff;--e:#7bd06a;
+:root{--bg:#120607;--panel:#1d0b0c;--line:#4a1517;--red:#820404;--text:#f3e6e3;--mute:#a88986;--field:#2a1011;--d:#3fd45a;--h:#ff7ab8;--e:#ffffff;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#120607}}
 *{box-sizing:border-box}
@@ -21,7 +21,15 @@ select:focus-visible,button:focus-visible{outline:2px solid #ff5b4d;outline-offs
 .run{display:block;margin-top:16px;font-weight:600}
 .run input{display:block;width:100%;margin-top:6px;font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-bottom:3px solid var(--red);border-radius:4px;padding:10px}
 .run input:focus-visible{outline:2px solid #ff5b4d;outline-offset:2px}
-.erun{color:#dbdee1;font-size:14px}
+.erun{color:#dbdee1;font-size:14px;white-space:pre-line;margin-top:4px}
+.rec{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;margin-bottom:8px}
+.rec input{font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0}
+.rec input:focus-visible{outline:2px solid #ff5b4d;outline-offset:2px}
+.tgs{display:flex;gap:6px}
+.tog{width:26px;height:26px;margin:0;padding:0;border-radius:5px;border:2px solid rgba(255,255,255,.35);opacity:.25;cursor:pointer}
+.tog[aria-pressed="true"]{opacity:1;border-color:#fff}
+.key{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--mute);margin:0 0 12px}
+.rec span.l{color:var(--mute);font-size:14px}
 button{margin-top:18px;width:100%;font:800 16px "Arial Black",sans-serif;color:#fff;background:var(--red);border:0;border-radius:4px;padding:14px;cursor:pointer}
 button:hover{background:#a00606}
 h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
@@ -60,13 +68,17 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
     <option>best to 100</option>
   </select>!
   <select id="emoji" aria-label="Player emoji">
-    <option value="d">DJ cube</option>
-    <option value="h">Hydrors cube</option>
-    <option value="e">Eydidie cube</option>
+    <option value="d">DJ (green)</option>
+    <option value="h">Hydrors (pink)</option>
+    <option value="e">Eydidie (white)</option>
   </select>
 </div>
 
 <label class="run">What was the run? <input id="run" type="text" maxlength="30" placeholder="e.g. 74-95" autocomplete="off"></label>
+
+<h2>Current records (edit if out of date)</h2>
+<div class="key"><span><span class="cube" style="background:var(--d)"></span> DJ</span><span><span class="cube" style="background:var(--h)"></span> Hydrors</span><span><span class="cube" style="background:var(--e)"></span> Eydidie</span><span>Click a square to turn it on or off.</span></div>
+<div id="records"></div>
 
 <button id="send" type="button">Post to Discord</button>
 <div id="toast" role="status"></div>
@@ -87,32 +99,74 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
 <script>
 const $=id=>document.getElementById(id);
 const col={d:"var(--d)",h:"var(--h)",e:"var(--e)"};
+const EMOJI={d:"<:dj_cube:1532053455911256165>",h:"<:hydrors_cube:1541256383570251886>",e:"<:eydidie_cube:1534219788216307883>"};
+const WEBHOOK_URL="https://discordapp.com/api/webhooks/1558650935088119850/pyVDpf5Mrm7fDuRptFupKuv9q7F6gepAfdmIMM9dG_LbiDDMx6NJZq-Om1RC3c7Z_Get";
+const ROLE_ID="1532385233352134747";
+const KEYS=["best from 0","best to 100","longest run","hardest run"];
+const LABEL={"best from 0":"Best from 0","best to 100":"Best to 100","longest run":"Longest run","hardest run":"Hardest run"};
+let rec={"best from 0":{run:"27%",by:["h"]},"best to 100":{run:"82-100",by:["d","h","e"]},"longest run":{run:"74-95",by:["d"]},"hardest run":{run:"74-95",by:["d"]}};
+try{const sv=JSON.parse(localStorage.getItem("slaughterhouse_records")||"null");
+  if(sv)for(const k of KEYS)if(sv[k]&&typeof sv[k].run==="string"&&Array.isArray(sv[k].by))rec[k]={run:sv[k].run.slice(0,30),by:sv[k].by.filter(x=>EMOJI[x])};}catch(e){}
+const ORDER=["d","h","e"],NAME={d:"DJ",h:"Hydrors",e:"Eydidie"};
+const ord=by=>ORDER.filter(x=>by.includes(x));
+function save(){try{localStorage.setItem("slaughterhouse_records",JSON.stringify(rec));}catch(e){}}
+const esc=t=>t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cubes=by=>ord(by).map(x=>'<span class="cube" style="background:'+col[x]+'"></span>').join(" ");
+
+function buildPanel(){
+  const box=$("records");box.innerHTML="";
+  for(const k of KEYS){
+    const row=document.createElement("div");row.className="rec";
+    row.innerHTML='<span class="l">'+LABEL[k]+'</span><input maxlength="30" aria-label="'+LABEL[k]+'" value="'+esc(rec[k].run)+'"><span class="tgs"></span>';
+    row.querySelector("input").addEventListener("input",e=>{rec[k].run=e.target.value;save();render();});
+    const wrap=row.querySelector(".tgs");
+    for(const w of ORDER){
+      const b=document.createElement("button");b.type="button";b.className="tog";b.style.background=col[w];
+      b.title=NAME[w];b.setAttribute("aria-label",LABEL[k]+" held by "+NAME[w]);b.dataset.k=k;b.dataset.w=w;
+      b.setAttribute("aria-pressed",String(rec[k].by.includes(w)));
+      b.addEventListener("click",()=>{const i=rec[k].by.indexOf(w);if(i>=0)rec[k].by.splice(i,1);else rec[k].by.push(w);save();render();});
+      wrap.appendChild(b);
+    }
+    box.appendChild(row);
+  }
+}
+function projected(){
+  const p=JSON.parse(JSON.stringify(rec)),k=$("cat").value,em=$("emoji").value,run=$("run").value.trim();
+  if($("kind").value==="tie"){if(!p[k].by.includes(em))p[k].by.push(em);}
+  else p[k]={run:run||p[k].run,by:[em]};
+  return p;
+}
 function render(){
   const tie=$("kind").value==="tie";
   $("verb").textContent=tie?"has tied the":"has achieved a new";
-  const em=$("emoji").value;
-  $("prev").innerHTML=$("player").value+" "+$("verb").textContent+" "+$("cat").value+'! <span class="cube" style="background:'+col[em]+'"></span>';
-  $("prevrun").textContent="Run: "+($("run").value.trim()||"...");
+  const em=$("emoji").value,p=projected();
+  $("prev").innerHTML=esc($("player").value+" "+$("verb").textContent+" "+$("cat").value+"! ")+cubes([em]);
+  const run=$("run").value.trim();
+  $("prevrun").innerHTML="Run: "+esc(run||"...")+"\n"+KEYS.map(k=>"\n"+LABEL[k]+": "+esc(p[k].run)+" "+cubes(p[k].by)).join("\n");
+  document.querySelectorAll(".tog").forEach(b=>b.setAttribute("aria-pressed",String(rec[b.dataset.k].by.includes(b.dataset.w))));
 }
-$("run").addEventListener("input",render);
 ["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
-const WEBHOOK_URL="PASTE_YOUR_NEW_WEBHOOK_URL_HERE";
-const ROLE_ID="1532385233352134747";
-const EMOJI={d:"<:dj_cube:1532053455911256165>",h:"<:hydrors_cube:1541256383570251886>",e:"<:eydidie_cube:1534219788216307883>"};
+$("run").addEventListener("input",render);
+
 $("send").addEventListener("click",async()=>{
   const run=$("run").value.trim();
   if(!run){$("toast").textContent="Enter what the run was first.";$("run").focus();return;}
   const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
+  const p=projected();
   const verb=$("kind").value==="tie"?"has tied the":"has achieved a new";
   const title=$("player").value+" "+verb+" "+$("cat").value+"! "+EMOJI[$("emoji").value];
+  const description="Run: "+run+"\n\n"+KEYS.map(k=>LABEL[k]+": "+p[k].run+" "+ord(p[k].by).map(x=>EMOJI[x]).join(" ")).join("\n\n");
   try{
     const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,description:"Run: "+run,color:0x820404}]})});
-    $("toast").textContent=r.ok?"Posted to Discord.":"Could not post (error "+r.status+"). Check the webhook URL.";
+      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,description:description,color:0x820404}]})});
+    if(r.ok){
+      rec=p;try{localStorage.setItem("slaughterhouse_records",JSON.stringify(rec));}catch(e){}
+      $("run").value="";buildPanel();render();$("toast").textContent="Posted to Discord.";
+    }else $("toast").textContent="Could not post (error "+r.status+"). Check the webhook URL.";
   }catch(e){$("toast").textContent="Could not reach Discord. Check the webhook URL.";}
   btn.disabled=false;
 });
-render();
+buildPanel();render();
 </script>
 </body>
 </html>
