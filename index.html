@@ -88,7 +88,7 @@ function render(){
   $("prev").innerHTML=$("player").value+" "+$("verb").textContent+" "+$("cat").value+'! <span class="cube" style="background:'+col[em]+'"></span>';
 }
 ["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
-const WORKER_URL="https://slaughterhouse-race.henry-r-calv.workers.dev/";
+const WORKER_URL="slaughterhouse-race.henry-r-calv.workers.dev";
 $("send").addEventListener("click",async()=>{
   const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
   try{
