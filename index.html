@@ -18,6 +18,10 @@ h1{font:800 34px/1.1 "Arial Black",Impact,sans-serif;margin:0 0 6px}
 select{font:inherit;font-weight:600;color:var(--text);background:var(--field);border:1px solid var(--line);border-bottom:3px solid var(--red);border-radius:4px;padding:4px 8px;margin:0 2px;max-width:100%}
 select:focus-visible,button:focus-visible{outline:2px solid #ff5b4d;outline-offset:2px}
 .hide{display:none}
+.run{display:block;margin-top:16px;font-weight:600}
+.run input{display:block;width:100%;margin-top:6px;font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-bottom:3px solid var(--red);border-radius:4px;padding:10px}
+.run input:focus-visible{outline:2px solid #ff5b4d;outline-offset:2px}
+.erun{color:#dbdee1;font-size:14px}
 button{margin-top:18px;width:100%;font:800 16px "Arial Black",sans-serif;color:#fff;background:var(--red);border:0;border-radius:4px;padding:14px;cursor:pointer}
 button:hover{background:#a00606}
 h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
@@ -62,6 +66,8 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
   </select>
 </div>
 
+<label class="run">What was the run? <input id="run" type="text" maxlength="30" placeholder="e.g. 74-95" autocomplete="off"></label>
+
 <button id="send" type="button">Post to Discord</button>
 <div id="toast" role="status"></div>
 
@@ -72,7 +78,7 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
     <div>
       <div><span class="name">Slaughterhouse Race</span><span class="bot">APP</span></div>
       <div><span class="ping">@Race Ping</span></div>
-      <div class="embed"><div class="etitle" id="prev"></div></div>
+      <div class="embed"><div class="etitle" id="prev"></div><div class="erun" id="prevrun"></div></div>
     </div>
   </div>
 </div>
@@ -86,18 +92,22 @@ function render(){
   $("verb").textContent=tie?"has tied the":"has achieved a new";
   const em=$("emoji").value;
   $("prev").innerHTML=$("player").value+" "+$("verb").textContent+" "+$("cat").value+'! <span class="cube" style="background:'+col[em]+'"></span>';
+  $("prevrun").textContent="Run: "+($("run").value.trim()||"...");
 }
+$("run").addEventListener("input",render);
 ["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
-const WEBHOOK_URL="https://discordapp.com/api/webhooks/1558650935088119850/pyVDpf5Mrm7fDuRptFupKuv9q7F6gepAfdmIMM9dG_LbiDDMx6NJZq-Om1RC3c7Z_Get";
+const WEBHOOK_URL="PASTE_YOUR_NEW_WEBHOOK_URL_HERE";
 const ROLE_ID="1532385233352134747";
 const EMOJI={d:"<:dj_cube:1532053455911256165>",h:"<:hydrors_cube:1541256383570251886>",e:"<:eydidie_cube:1534219788216307883>"};
 $("send").addEventListener("click",async()=>{
+  const run=$("run").value.trim();
+  if(!run){$("toast").textContent="Enter what the run was first.";$("run").focus();return;}
   const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
   const verb=$("kind").value==="tie"?"has tied the":"has achieved a new";
   const title=$("player").value+" "+verb+" "+$("cat").value+"! "+EMOJI[$("emoji").value];
   try{
     const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,color:0x820404}]})});
+      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,description:"Run: "+run,color:0x820404}]})});
     $("toast").textContent=r.ok?"Posted to Discord.":"Could not post (error "+r.status+"). Check the webhook URL.";
   }catch(e){$("toast").textContent="Could not reach Discord. Check the webhook URL.";}
   btn.disabled=false;
