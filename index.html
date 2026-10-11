@@ -88,14 +88,18 @@ function render(){
   $("prev").innerHTML=$("player").value+" "+$("verb").textContent+" "+$("cat").value+'! <span class="cube" style="background:'+col[em]+'"></span>';
 }
 ["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
-const WORKER_URL="slaughterhouse-race.henry-r-calv.workers.dev";
+const WEBHOOK_URL="https://discordapp.com/api/webhooks/1558650935088119850/pyVDpf5Mrm7fDuRptFupKuv9q7F6gepAfdmIMM9dG_LbiDDMx6NJZq-Om1RC3c7Z_Get";
+const ROLE_ID="1532385233352134747";
+const EMOJI={d:"<:dj_cube:1532053455911256165>",h:"<:hydrors_cube:1541256383570251886>",e:"<:eydidie_cube:1534219788216307883>"};
 $("send").addEventListener("click",async()=>{
   const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
+  const verb=$("kind").value==="tie"?"has tied the":"has achieved a new";
+  const title=$("player").value+" "+verb+" "+$("cat").value+"! "+EMOJI[$("emoji").value];
   try{
-    const r=await fetch(WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({kind:$("kind").value,player:$("player").value,category:$("cat").value,emoji:$("emoji").value})});
-    $("toast").textContent=r.ok?"Posted to Discord.":"Could not post (error "+r.status+"). Try again.";
-  }catch(e){$("toast").textContent="Could not reach the server. Check the Worker URL.";}
+    const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,color:0x820404}]})});
+    $("toast").textContent=r.ok?"Posted to Discord.":"Could not post (error "+r.status+"). Check the webhook URL.";
+  }catch(e){$("toast").textContent="Could not reach Discord. Check the webhook URL.";}
   btn.disabled=false;
 });
 render();
