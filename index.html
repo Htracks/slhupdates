@@ -76,8 +76,8 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
 
 <label class="run">What was the run? <input id="run" type="text" maxlength="30" placeholder="e.g. 74-95" autocomplete="off"></label>
 
-<h2>Current records (edit if out of date)</h2>
-<div class="key"><span><span class="cube" style="background:var(--d)"></span> DJ</span><span><span class="cube" style="background:var(--h)"></span> Hydrors</span><span><span class="cube" style="background:var(--e)"></span> Eydidie</span><span>Click a square to turn it on or off.</span></div>
+<h2>Current records</h2>
+<div class="key"><span><span class="cube" style="background:var(--d)"></span> DJ</span><span><span class="cube" style="background:var(--h)"></span> Hydrors</span><span><span class="cube" style="background:var(--e)"></span> Eydidie</span></div>
 <div id="records"></div>
 
 <button id="send" type="button">Post to Discord</button>
@@ -99,37 +99,14 @@ h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
 <script>
 const $=id=>document.getElementById(id);
 const col={d:"var(--d)",h:"var(--h)",e:"var(--e)"};
-const EMOJI={d:"<:dj_cube:1532053455911256165>",h:"<:hydrors_cube:1541256383570251886>",e:"<:eydidie_cube:1534219788216307883>"};
-const WEBHOOK_URL="https://discordapp.com/api/webhooks/1558650935088119850/pyVDpf5Mrm7fDuRptFupKuv9q7F6gepAfdmIMM9dG_LbiDDMx6NJZq-Om1RC3c7Z_Get";
-const ROLE_ID="1532385233352134747";
+const WORKER_URL="https://slaughterhouse-race.henry-r-calv.workers.dev/";
 const KEYS=["best from 0","best to 100","longest run","hardest run"];
 const LABEL={"best from 0":"Best from 0","best to 100":"Best to 100","longest run":"Longest run","hardest run":"Hardest run"};
-let rec={"best from 0":{run:"27%",by:["h"]},"best to 100":{run:"82-100",by:["d","h","e"]},"longest run":{run:"74-95",by:["d"]},"hardest run":{run:"74-95",by:["d"]}};
-try{const sv=JSON.parse(localStorage.getItem("slaughterhouse_records")||"null");
-  if(sv)for(const k of KEYS)if(sv[k]&&typeof sv[k].run==="string"&&Array.isArray(sv[k].by))rec[k]={run:sv[k].run.slice(0,30),by:sv[k].by.filter(x=>EMOJI[x])};}catch(e){}
-const ORDER=["d","h","e"],NAME={d:"DJ",h:"Hydrors",e:"Eydidie"};
-const ord=by=>ORDER.filter(x=>by.includes(x));
-function save(){try{localStorage.setItem("slaughterhouse_records",JSON.stringify(rec));}catch(e){}}
+const ORDER=["d","h","e"];
+let rec=null;
 const esc=t=>t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const cubes=by=>ord(by).map(x=>'<span class="cube" style="background:'+col[x]+'"></span>').join(" ");
+const cubes=by=>ORDER.filter(x=>by.includes(x)).map(x=>'<span class="cube" style="background:'+col[x]+'"></span>').join(" ");
 
-function buildPanel(){
-  const box=$("records");box.innerHTML="";
-  for(const k of KEYS){
-    const row=document.createElement("div");row.className="rec";
-    row.innerHTML='<span class="l">'+LABEL[k]+'</span><input maxlength="30" aria-label="'+LABEL[k]+'" value="'+esc(rec[k].run)+'"><span class="tgs"></span>';
-    row.querySelector("input").addEventListener("input",e=>{rec[k].run=e.target.value;save();render();});
-    const wrap=row.querySelector(".tgs");
-    for(const w of ORDER){
-      const b=document.createElement("button");b.type="button";b.className="tog";b.style.background=col[w];
-      b.title=NAME[w];b.setAttribute("aria-label",LABEL[k]+" held by "+NAME[w]);b.dataset.k=k;b.dataset.w=w;
-      b.setAttribute("aria-pressed",String(rec[k].by.includes(w)));
-      b.addEventListener("click",()=>{const i=rec[k].by.indexOf(w);if(i>=0)rec[k].by.splice(i,1);else rec[k].by.push(w);save();render();});
-      wrap.appendChild(b);
-    }
-    box.appendChild(row);
-  }
-}
 function projected(){
   const p=JSON.parse(JSON.stringify(rec)),k=$("cat").value,em=$("emoji").value,run=$("run").value.trim();
   if($("kind").value==="tie"){if(!p[k].by.includes(em))p[k].by.push(em);}
@@ -139,34 +116,37 @@ function projected(){
 function render(){
   const tie=$("kind").value==="tie";
   $("verb").textContent=tie?"has tied the":"has achieved a new";
-  const em=$("emoji").value,p=projected();
-  $("prev").innerHTML=esc($("player").value+" "+$("verb").textContent+" "+$("cat").value+"! ")+cubes([em]);
-  const run=$("run").value.trim();
+  $("prev").innerHTML=esc($("player").value+" "+$("verb").textContent+" "+$("cat").value+"! ")+cubes([$("emoji").value]);
+  if(!rec){$("records").textContent="Loading records...";$("prevrun").textContent="";return;}
+  $("records").innerHTML=KEYS.map(k=>'<div class="rec"><span class="l">'+LABEL[k]+'</span><span>'+esc(rec[k].run)+'</span><span>'+cubes(rec[k].by)+'</span></div>').join("");
+  const p=projected(),run=$("run").value.trim();
   $("prevrun").innerHTML="Run: "+esc(run||"...")+"\n"+KEYS.map(k=>"\n"+LABEL[k]+": "+esc(p[k].run)+" "+cubes(p[k].by)).join("\n");
-  document.querySelectorAll(".tog").forEach(b=>b.setAttribute("aria-pressed",String(rec[b.dataset.k].by.includes(b.dataset.w))));
 }
 ["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
 $("run").addEventListener("input",render);
 
+async function load(){
+  try{
+    const r=await fetch(WORKER_URL);
+    rec=(await r.json()).records;
+    $("send").disabled=false;$("toast").textContent="";
+  }catch(e){$("records").textContent="";$("toast").textContent="Could not load the current records. Refresh the page.";}
+  render();
+}
 $("send").addEventListener("click",async()=>{
   const run=$("run").value.trim();
   if(!run){$("toast").textContent="Enter what the run was first.";$("run").focus();return;}
   const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
-  const p=projected();
-  const verb=$("kind").value==="tie"?"has tied the":"has achieved a new";
-  const title=$("player").value+" "+verb+" "+$("cat").value+"! "+EMOJI[$("emoji").value];
-  const description="Run: "+run+"\n\n"+KEYS.map(k=>LABEL[k]+": "+p[k].run+" "+ord(p[k].by).map(x=>EMOJI[x]).join(" ")).join("\n\n");
   try{
-    const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({content:"<@&"+ROLE_ID+">",allowed_mentions:{roles:[ROLE_ID]},embeds:[{title:title,description:description,color:0x820404}]})});
-    if(r.ok){
-      rec=p;try{localStorage.setItem("slaughterhouse_records",JSON.stringify(rec));}catch(e){}
-      $("run").value="";buildPanel();render();$("toast").textContent="Posted to Discord.";
-    }else $("toast").textContent="Could not post (error "+r.status+"). Check the webhook URL.";
-  }catch(e){$("toast").textContent="Could not reach Discord. Check the webhook URL.";}
+    const r=await fetch(WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind:$("kind").value,player:$("player").value,category:$("cat").value,emoji:$("emoji").value,run:run})});
+    if(r.ok){rec=(await r.json()).records;$("run").value="";render();$("toast").textContent="Posted to Discord.";}
+    else $("toast").textContent="Could not post (error "+r.status+"). Try again.";
+  }catch(e){$("toast").textContent="Could not reach the server. Try again.";}
   btn.disabled=false;
 });
-buildPanel();render();
+$("send").disabled=true;
+load();
 </script>
 </body>
 </html>
