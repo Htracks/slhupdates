@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slaughterhouse Race</title>
+<style>
+:root{--bg:#120607;--panel:#1d0b0c;--line:#4a1517;--red:#820404;--text:#f3e6e3;--mute:#a88986;--field:#2a1011;--d:#e0a030;--h:#4aa3ff;--e:#7bd06a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#120607}}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Barlow","Segoe UI",Arial,sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 18px 48px}
+h1{font:800 34px/1.1 "Arial Black",Impact,sans-serif;margin:0 0 6px}
+.sub{color:var(--mute);margin:0 0 24px}
+.sentence{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px;font-size:18px;line-height:2.6}
+select{font:inherit;font-weight:600;color:var(--text);background:var(--field);border:1px solid var(--line);border-bottom:3px solid var(--red);border-radius:4px;padding:4px 8px;margin:0 2px;max-width:100%}
+select:focus-visible,button:focus-visible{outline:2px solid #ff5b4d;outline-offset:2px}
+.hide{display:none}
+button{margin-top:18px;width:100%;font:800 16px "Arial Black",sans-serif;color:#fff;background:var(--red);border:0;border-radius:4px;padding:14px;cursor:pointer}
+button:hover{background:#a00606}
+h2{font-size:15px;color:var(--mute);margin:30px 0 8px;font-weight:600}
+.discord{background:#313338;border-radius:6px;padding:14px 16px;font:15px/1.4 "gg sans","Segoe UI",Arial,sans-serif;color:#dbdee1}
+.msg{display:flex;gap:12px}
+.av{flex:none;width:40px;height:40px;border-radius:50%;background:var(--red);display:grid;place-items:center;font-weight:800;color:#fff}
+.name{font-weight:600;color:#fff}.bot{background:#5865f2;color:#fff;font-size:10px;border-radius:3px;padding:1px 5px;margin-left:4px}
+.ping{background:rgba(88,101,242,.3);color:#c9cdfb;border-radius:3px;padding:0 3px}
+.embed{margin-top:6px;background:#2b2d31;border-left:4px solid #820404;border-radius:4px;padding:10px 14px}
+.etitle{font-weight:700;color:#fff;margin-bottom:6px}
+.cube{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:-3px;border:2px solid rgba(255,255,255,.35)}
+.note{color:var(--mute);font-size:13px;margin-top:14px}
+#toast{margin-top:12px;color:#ffb3a8;min-height:1.4em}
+</style>
+</head>
+<body>
+<main>
+<h1>Slaughterhouse Race</h1>
+<p class="sub">Post a run update to the server.</p>
+
+<div class="sentence">
+  <select id="kind" aria-label="Improvement or tie">
+    <option value="imp">Improvement</option>
+    <option value="tie">Tie</option>
+  </select><br>
+  <select id="player" aria-label="Player">
+    <option value="DJ">DJ</option>
+    <option value="Hydrors">Hydrors</option>
+    <option value="Eydidie">Eydidie</option>
+  </select>
+  <span id="verb">has achieved a new</span>
+  <select id="cat" aria-label="Category">
+    <option>hardest run</option>
+    <option>longest run</option>
+    <option>best from 0</option>
+    <option>best to 100</option>
+  </select>!
+  <select id="emoji" aria-label="Player emoji">
+    <option value="d">DJ cube</option>
+    <option value="h">Hydrors cube</option>
+    <option value="e">Eydidie cube</option>
+  </select>
+</div>
+
+<button id="send" type="button">Post to Discord</button>
+<div id="toast" role="status"></div>
+
+<h2>How it will look in Discord</h2>
+<div class="discord">
+  <div class="msg">
+    <div class="av">S</div>
+    <div>
+      <div><span class="name">Slaughterhouse Race</span><span class="bot">APP</span></div>
+      <div><span class="ping">@Race Ping</span></div>
+      <div class="embed"><div class="etitle" id="prev"></div></div>
+    </div>
+  </div>
+</div>
+<p class="note">Posting pings the race role in Discord.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const col={d:"var(--d)",h:"var(--h)",e:"var(--e)"};
+function render(){
+  const tie=$("kind").value==="tie";
+  $("verb").textContent=tie?"has tied the":"has achieved a new";
+  const em=$("emoji").value;
+  $("prev").innerHTML=$("player").value+" "+$("verb").textContent+" "+$("cat").value+'! <span class="cube" style="background:'+col[em]+'"></span>';
+}
+["kind","player","cat","emoji"].forEach(i=>$(i).addEventListener("change",render));
+const WORKER_URL="https://slaughterhouse-race.henry-r-calv.workers.dev/";
+$("send").addEventListener("click",async()=>{
+  const btn=$("send");btn.disabled=true;$("toast").textContent="Posting...";
+  try{
+    const r=await fetch(WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind:$("kind").value,player:$("player").value,category:$("cat").value,emoji:$("emoji").value})});
+    $("toast").textContent=r.ok?"Posted to Discord.":"Could not post (error "+r.status+"). Try again.";
+  }catch(e){$("toast").textContent="Could not reach the server. Check the Worker URL.";}
+  btn.disabled=false;
+});
+render();
+</script>
+</body>
+</html>
